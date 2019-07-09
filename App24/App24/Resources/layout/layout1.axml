@@ -16,7 +16,7 @@
 		android:layout_height="wrap_content" />
 	<Button
 		android:id="@+id/btnSend"
-		android:text="button1"
+		android:text="Send Message"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content" />
 	

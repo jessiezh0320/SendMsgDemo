@@ -20,89 +20,91 @@ namespace App24
     public class MainActivity : AppCompatActivity, ActivityCompat.IOnRequestPermissionsResultCallback 
     {
         static readonly int REQUEST_SENDSMS = 0;
-        static readonly int REQUEST_READ_PHONE_STATE = 0x001;
 
-
+        public  string TAG
+        {
+            get
+            {
+                return "MainActivity";
+            }
+        }
+        static string[] PERMISSIONS_SENDMSG = {
+            Manifest.Permission.SendSms,
+            Manifest.Permission.ReadPhoneState
+        };
 
         View layout;
         private SmsManager _smsManager;
         private BroadcastReceiver _smsSentBroadcastReceiver, _smsDeliveredBroadcastReceiver;
+
+        Button smsBtn;
+        EditText phoneNum;
+        EditText sms;
+
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
+            //Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.layout1);
             layout = FindViewById(Resource.Id.sample_main_layout);
-            Button smsBtn = FindViewById<Button>(Resource.Id.btnSend);
-            EditText phoneNum = FindViewById<EditText>(Resource.Id.phoneNum);
-            EditText sms = FindViewById<EditText>(Resource.Id.txtSMS);
+            smsBtn = FindViewById<Button>(Resource.Id.btnSend);
+            phoneNum = FindViewById<EditText>(Resource.Id.phoneNum);
+            sms = FindViewById<EditText>(Resource.Id.txtSMS);
             _smsManager = SmsManager.Default;
 
             smsBtn.Click += (s, e) =>
             {
+                checkSendMsgPermission();
+
+            };
+        }
+
+        void checkSendMsgPermission() {
+            Log.Info(TAG, "button pressed. Checking permissions.");
+
+            // Verify that all required  permissions have been granted.
+            if (ActivityCompat.CheckSelfPermission(this, Manifest.Permission.SendSms) != (int)Permission.Granted
+                || ActivityCompat.CheckSelfPermission(this, Manifest.Permission.ReadPhoneState) != (int)Permission.Granted)
+            {
+                // Contacts permissions have not been granted.
+                Log.Info(TAG, " permissions has NOT been granted. Requesting permissions.");
+                RequestSendMsgPermissions();
+            }
+            else
+            {
+                //  permissions have been granted. 
+                Log.Info(TAG, " permissions have already been granted.");
+
                 var phone = phoneNum.Text;
                 var message = sms.Text;
                 var piSent = PendingIntent.GetBroadcast(this, 0, new Intent("SMS_SENT"), 0);
                 var piDelivered = PendingIntent.GetBroadcast(this, 0, new Intent("SMS_DELIVERED"), 0);
-
-                if ((int)Build.VERSION.SdkInt < 23)
-                {
-                    _smsManager.SendTextMessage(phone, null, message, piSent, piDelivered);
-                    return;
-                }
-                else
-                {
-                    if (ActivityCompat.CheckSelfPermission(this, Manifest.Permission.SendSms) != (int)Permission.Granted)
-                    {
-                        // Permission is not granted. If necessary display rationale & request.
-                        RequestSendSMSPermission();
-                    }
-                    else
-                    {
-                        //_smsManager.SendTextMessage(phone, null, message, piSent, piDelivered);
-
-                        if (ActivityCompat.CheckSelfPermission(this, Manifest.Permission.ReadPhoneState) != (int)Permission.Granted)
-                        {
-                            // Permission is not granted. If necessary display rationale & request.
-                            RequestReadPhoneStatePermission();
-                        }
-                        else
-                        {
-                            // We have permission, go ahead and send SMS.
-                            _smsManager.SendTextMessage(phone, null, message, piSent, piDelivered);
-
-                        }
-
-
-
-                    }
-                }
-            };
+                _smsManager.SendTextMessage(phone, null, message, piSent, piDelivered);
+            }
         }
 
-        private void RequestReadPhoneStatePermission()
+        private void RequestSendMsgPermissions()
         {
-            Log.Info("MainActivity", "READ_PHONE_STATE permission has NOT been granted. Requesting permission.");
 
-            if (ActivityCompat.ShouldShowRequestPermissionRationale(this, Manifest.Permission.ReadPhoneState))
+            if (ActivityCompat.ShouldShowRequestPermissionRationale(this, Manifest.Permission.SendSms)
+                || ActivityCompat.ShouldShowRequestPermissionRationale(this, Manifest.Permission.ReadPhoneState))
             {
-                // Provide an additional rationale to the user if the permission was not granted
-                // and the user would benefit from additional context for the use of the permission.
-                // For example if the user has previously denied the permission.
-                Log.Info("MainActivity", " READ_PHONE_STATE permission rationale to provide additional context.");
-                //Activity activity = CrossCurrentActivity.Current.Activity;
-                //Android.Views.View activityRootView = activity.FindViewById(Android.Resource.Id.Content);
-                Snackbar.Make(layout, "READ_PHONE_STATE permission is needed to send SMS.",
+
+                // Display a SnackBar with an explanation and a button to trigger the request.
+                Snackbar.Make(layout, "Message permission is needed to send SMS.",
                     Snackbar.LengthIndefinite).SetAction("OK", new Action<View>(delegate (View obj) {
-                        ActivityCompat.RequestPermissions(this, new String[] { Manifest.Permission.ReadPhoneState }, REQUEST_READ_PHONE_STATE);
+                        ActivityCompat.RequestPermissions(this, PERMISSIONS_SENDMSG, REQUEST_SENDSMS);
                     })).Show();
             }
             else
             {
-                // Message permission has not been granted yet. Request it directly.
-                ActivityCompat.RequestPermissions(this, new String[] { Manifest.Permission.ReadPhoneState }, REQUEST_READ_PHONE_STATE);
+                // Contact permissions have not been granted yet. Request them directly.
+                ActivityCompat.RequestPermissions(this, PERMISSIONS_SENDMSG, REQUEST_SENDSMS);
             }
+
         }
+
 
         protected override void OnResume()
         {
@@ -125,35 +127,32 @@ namespace App24
 
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
-            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+            //Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            if (requestCode== REQUEST_SENDSMS) {
+                if (PermissionUtil.VerifyPermissions(grantResults))
+                {
+                    // All required permissions have been granted, display contacts fragment.
+                    Snackbar.Make(layout, " Permissions have been granted. ", Snackbar.LengthShort).Show();
+                    var phone = phoneNum.Text;
+                    var message = sms.Text;
+                    var piSent = PendingIntent.GetBroadcast(this, 0, new Intent("SMS_SENT"), 0);
+                    var piDelivered = PendingIntent.GetBroadcast(this, 0, new Intent("SMS_DELIVERED"), 0);
+                    _smsManager.SendTextMessage(phone, null, message, piSent, piDelivered);
+
+                }
+                else
+                {
+                    Log.Info(TAG, " permissions were NOT granted.");
+                    Snackbar.Make(layout, "Permissions were not granted.", Snackbar.LengthShort).Show();
+                }
+            }
 
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
 
-        void RequestSendSMSPermission()
-        {
-            Log.Info("MainActivity", "Message permission has NOT been granted. Requesting permission.");
-
-            if (ActivityCompat.ShouldShowRequestPermissionRationale(this, Manifest.Permission.SendSms))
-            {
-                // Provide an additional rationale to the user if the permission was not granted
-                // and the user would benefit from additional context for the use of the permission.
-                // For example if the user has previously denied the permission.
-                Log.Info("MainActivity", "Displaying message permission rationale to provide additional context.");
-                //Activity activity = CrossCurrentActivity.Current.Activity;
-                //Android.Views.View activityRootView = activity.FindViewById(Android.Resource.Id.Content);
-                Snackbar.Make(layout, "Message permission is needed to send SMS.",
-                    Snackbar.LengthIndefinite).SetAction("OK", new Action<View>(delegate (View obj) {
-                        ActivityCompat.RequestPermissions(this, new String[] { Manifest.Permission.SendSms }, REQUEST_SENDSMS);
-                    })).Show();
-            }
-            else
-            {
-                // Message permission has not been granted yet. Request it directly.
-                ActivityCompat.RequestPermissions(this, new String[] { Manifest.Permission.SendSms }, REQUEST_SENDSMS);
-            }
-        }
+        
     }
 
 
